@@ -211,9 +211,9 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         if len(enemy_health) >= 10:
             if len(set(enemy_health[len(enemy_health)-7:])) <= 1:
-                game_state.attempt_spawn(WALL, [[21,12],[20,11],[22,13]])
-                game_state.attempt_upgrade([[21, 12], [20, 11], [22, 13]])
-        if game_state.get_resource(SP) >= 30:
+                game_state.attempt_spawn(WALL, [[20, 12], [20, 11], [21, 13]])
+                game_state.attempt_upgrade([[20, 12], [20, 11], [21, 13]])
+        if game_state.get_resource(SP) >= 16:
             for x in range(9, 16, 1):
                 support_locations.append([x, 6])
             game_state.attempt_spawn(SUPPORT, support_locations)
@@ -243,6 +243,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         for location in unique_scored_on_locations:
             # Build turret one space above so that it doesn't block our own edge spawn locations
             build_location = [location[0], location[1]]
+            if build_location in [[0,13], [1,12], [2,11]]:
+                game_state.attempt_spawn(TURRET, [[2, 12], [3, 12], [1, 13], [2, 13]])
+                game_state.attempt_upgrade(TURRET, [[2, 12], [1, 13]])
             if build_location not in [[24,10],[25,11],[23,9]]:
                 game_state.attempt_spawn(INTERCEPTOR, build_location,1)
 
