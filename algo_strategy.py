@@ -78,9 +78,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_defences(game_state)
         # Now build reactive defenses based on where the enemy scored
 
-        if game_state.turn_number <= 1:
-            game_state.attempt_spawn(DEMOLISHER, [[25,11]],1000)
-            game_state.attempt_spawn(SCOUT, [[25,11]],1000)
+        if game_state.turn_number <= 2:
+            game_state.attempt_spawn(INTERCEPTOR, [[25,11]],1)
+            game_state.attempt_spawn(INTERCEPTOR, [[4,9]],1)
             return
 
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
@@ -94,21 +94,24 @@ class AlgoStrategy(gamelib.AlgoCore):
             if self.detect_enemy_unit(game_state, unit_type=None, valid_x=list(range(28)), valid_y=[15]) > 15 or self.detect_enemy_unit(game_state, unit_type=None, valid_x=list(range(1,27)), valid_y=[14])>13:
                 self.demolisher_line_strategy(game_state)
             else:
-                scout_spawn_location_options = [[14, 0]]
-                game_state.attempt_spawn(SCOUT, scout_spawn_location_options, 1000)
-                #如果有三回合没有造成伤害了，那就派出demolisher
-                if game_state.turn_number % 1 == 0:
-                    # To simplify we will just check sending them from back left and right
-                    # scout_spawn_location_options = [[13, 0], [14, 0]]
-                    # best_location = self.least_damage_spawn_location(game_state, scout_spawn_location_options)
-                    # game_state.attempt_spawn(SCOUT, best_location, 1000)
-                    scout_spawn_location_options = [[14, 0]]
-                    game_state.attempt_spawn(SCOUT, scout_spawn_location_options, 1000)
-
-                # Lastly, if we have spare SP, let's build some supports
-                support_locations = [[8, 10], [13, 5], [12, 6], [10, 10], [13, 11], [15, 6], [12, 5], [11, 6]]
-                game_state.attempt_spawn(SUPPORT, support_locations)
-                game_state.attempt_upgrade(support_locations)
+                if game_state.turn_number % 2 == 0:
+                    game_state.attempt_spawn(DEMOLISHER, [4, 9], 1000)
+                    game_state.attempt_spawn(SCOUT, [4, 9], 1000)
+                # scout_spawn_location_options = [[14, 0]]
+                # game_state.attempt_spawn(SCOUT, scout_spawn_location_options, 1000)
+                # #如果有三回合没有造成伤害了，那就派出demolisher
+                # if game_state.turn_number % 1 == 0:
+                #     # To simplify we will just check sending them from back left and right
+                #     # scout_spawn_location_options = [[13, 0], [14, 0]]
+                #     # best_location = self.least_damage_spawn_location(game_state, scout_spawn_location_options)
+                #     # game_state.attempt_spawn(SCOUT, best_location, 1000)
+                #     scout_spawn_location_options = [[14, 0]]
+                #     game_state.attempt_spawn(SCOUT, scout_spawn_location_options, 1000)
+                #
+                # # Lastly, if we have spare SP, let's build some supports
+                # support_locations = [[8, 10], [13, 5], [12, 6], [10, 10], [13, 11], [15, 6], [12, 5], [11, 6]]
+                # game_state.attempt_spawn(SUPPORT, support_locations)
+                # game_state.attempt_upgrade(support_locations)
 
     def build_defences(self, game_state):
         """
@@ -135,12 +138,13 @@ class AlgoStrategy(gamelib.AlgoCore):
             turret_locations.append([x, 12])
         for x in range(8, 23, 4):
             turret_locations.append([x, 10])
+        turret_locations.append([3,12])
         game_state.attempt_spawn(TURRET, turret_locations)
         turret_locations = []
         for x in range(9, 4, -2):
             turret_locations.append([x, 12])
         game_state.attempt_spawn(TURRET, turret_locations)
-        wall_locations = [[4, 10], [6, 12], [4, 12]]
+        wall_locations = [[4, 10], [6, 12], [4, 12],[1,12],[2,12]]
         for x in range(13, 21, 1):
             wall_locations.append([x, 10])
         game_state.attempt_spawn(WALL, wall_locations)
