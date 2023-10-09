@@ -78,35 +78,40 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_defences(game_state)
         # Now build reactive defenses based on where the enemy scored
 
-        if game_state.turn_number <= 0:
-            game_state.attempt_spawn(INTERCEPTOR, [[25,11]],1)
-            game_state.attempt_spawn(INTERCEPTOR, [[4,9]],1)
-            return
         if game_state.turn_number <=2:
             game_state.attempt_spawn(DEMOLISHER, [[25,11]],1)
-            game_state.attempt_spawn(DEMOLISHER, [4, 9], 1)
-            return
-        if game_state.turn_number % 2 == 1:
-            game_state.attempt_spawn(DEMOLISHER, [4, 9], 1000)
-            # game_state.attempt_spawn(SCOUT, [4, 9], 1000)
-            return
-        else:
+            game_state.attempt_spawn(SCOUT, [4, 9], 1)
             return
 
-        # If the turn is less than 5, stall with interceptors and wait to see enemy's base
-        if game_state.turn_number < 26:
-            game_state.attempt_spawn(DEMOLISHER, [4,9], 1000)
-            game_state.attempt_spawn(SCOUT, [4,9], 1000)
-            # self.stall_defensive_interceptors(game_state)
+        scout_spawn_location_options = [[25, 11], [21, 7], [4, 9]]
+        damage, best_location = self.least_damage_spawn_location(game_state, scout_spawn_location_options)
+        if damage == 0:
+            game_state.attempt_spawn(SCOUT, best_location, 1000)
         else:
-            # Now let's analyze the enemy base to see where their defenses are concentrated.
-            # If they have many units in the front we can build a line for our demolishers to attack them at long range.
-            if self.detect_enemy_unit(game_state, unit_type=None, valid_x=list(range(28)), valid_y=[15]) > 15 or self.detect_enemy_unit(game_state, unit_type=None, valid_x=list(range(1,27)), valid_y=[14])>13:
-                self.demolisher_line_strategy(game_state)
-            else:
-                if game_state.turn_number % 2 == 0:
-                    game_state.attempt_spawn(DEMOLISHER, [4, 9], 1000)
-                    game_state.attempt_spawn(SCOUT, [4, 9], 1000)
+            if game_state.get_resource(MP) >= 2 * game_state.type_cost(DEMOLISHER)[MP] + 1:
+                game_state.attempt_spawn(DEMOLISHER, best_location[0], 1000)
+                game_state.attempt_spawn(SCOUT, [21, 7], 1000)
+
+
+
+
+
+
+
+        # # If the turn is less than 5, stall with interceptors and wait to see enemy's base
+        # if game_state.turn_number < 26:
+        #     game_state.attempt_spawn(DEMOLISHER, [4,9], 1000)
+        #     game_state.attempt_spawn(SCOUT, [4,9], 1000)
+        #     # self.stall_defensive_interceptors(game_state)
+        # else:
+        #     # Now let's analyze the enemy base to see where their defenses are concentrated.
+        #     # If they have many units in the front we can build a line for our demolishers to attack them at long range.
+        #     if self.detect_enemy_unit(game_state, unit_type=None, valid_x=list(range(28)), valid_y=[15]) > 15 or self.detect_enemy_unit(game_state, unit_type=None, valid_x=list(range(1,27)), valid_y=[14])>13:
+        #         self.demolisher_line_strategy(game_state)
+        #     else:
+        #         if game_state.turn_number % 2 == 0:
+        #             game_state.attempt_spawn(DEMOLISHER, [4, 9], 1000)
+        #             game_state.attempt_spawn(SCOUT, [4, 9], 1000)
                 # scout_spawn_location_options = [[14, 0]]
                 # game_state.attempt_spawn(SCOUT, scout_spawn_location_options, 1000)
                 # #如果有三回合没有造成伤害了，那就派出demolisher
@@ -165,6 +170,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(SUPPORT, support_locations)
         upgrade_locations = [[11, 12], [17, 12], [22, 12], [8, 10], [12, 10], [13, 10], [14, 12], [18, 12]]
         game_state.attempt_upgrade(upgrade_locations)
+        support_locations = []
+        for x in range(8,22,1):
+            support_locations.append([x, 8])
+        game_state.attempt_spawn(SUPPORT, support_locations)
 
 
 
@@ -179,6 +188,9 @@ class AlgoStrategy(gamelib.AlgoCore):
             for unit in game_state.game_map[location[0],location[1]]:
                 if unit.health < 25 and unit.unit_type == TURRET:
                     game_state.attempt_spawn(WALL, location)
+        if game_state.turn_number >=6:
+            game_state.attempt_spawn(WALL, [0,13])
+            game_state.attempt_upgrade([[0, 13]])
         # for location in self.scored_on_locations:
         #     # Build turret one space above so that it doesn't block our own edge spawn locations
         #     build_location = [[location[0], location[1]],[location[0]+1, location[1]],[location[0]-1, location[1]]]
@@ -252,7 +264,7 @@ class AlgoStrategy(gamelib.AlgoCore):
             damages.append(damage)
         
         # Now just return the location that takes the least damage
-        return location_options[damages.index(min(damages))]
+        return min(damages), location_options[damages.index(min(damages))]
 
     def detect_enemy_unit(self, game_state, unit_type=None, valid_x = None, valid_y = None):
         total_units = 0
