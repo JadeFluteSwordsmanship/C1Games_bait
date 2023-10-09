@@ -74,8 +74,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         If there are no stationary units to attack in the front, we will send Scouts to try and score quickly.
         """
         # First, place basic defenses
-        self.build_reactive_defense(game_state)
+
         self.build_defences(game_state)
+        self.build_reactive_defense(game_state)
         # Now build reactive defenses based on where the enemy scored
 
         if game_state.turn_number <= 1:
@@ -89,14 +90,18 @@ class AlgoStrategy(gamelib.AlgoCore):
             game_state.attempt_spawn(SCOUT, best_location[1], 1000)
         else:
             if best_location[0] <= 15:
-                game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
+                game_state.attempt_spawn(DEMOLISHER, [4,9], 1)
+                game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
             else:
-                if game_state.get_resource(MP) >= 10 * game_state.type_cost(SCOUT)[MP]:
+                if game_state.get_resource(MP) >= 13 * game_state.type_cost(SCOUT)[MP]:
                     # game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
+                    game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
                     game_state.attempt_spawn(SCOUT, [4,9], 1000)
                 else:
                     if game_state.turn_number % 3 == 1:
-                        game_state.attempt_spawn(DEMOLISHER,  [4,9] , 1)
+                        game_state.attempt_spawn(DEMOLISHER, [4,9] , 1)
+                    if game_state.turn_number % 2 == 1:
+                        game_state.attempt_spawn(INTERCEPTOR, [23, 9] , 1)
 
 
 
@@ -172,7 +177,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_upgrade(upgrade_locations)
         support_locations = [[4, 10]]
         game_state.attempt_spawn(SUPPORT, support_locations)
-        for x in range(2, 5, 1):
+        for x in range(2, 6, 1):
             upgrade_locations.append([x, 11])
         upgrade_locations.append([20, 10])
         upgrade_locations.append([19, 9])
@@ -184,10 +189,24 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         turret_locations = []
         for x in range(19,15,-1):
-            turret_locations.append([x, 8])
-            turret_locations.append([x, 5])
-
+            turret_locations.append([x, x-11])
+            turret_locations.append([x, x-14])
+        turret_locations.append([7,8])
+        turret_locations.append([17, 8])
         game_state.attempt_spawn(TURRET, turret_locations)
+        support_locations = [[24, 10],[6,9],[8,7]]
+        game_state.attempt_spawn(WALL, [20, 11])
+        game_state.attempt_spawn(SUPPORT, support_locations)
+
+        if game_state.get_resource(SP) >= 30:
+            for x in range(9, 16, 1):
+                support_locations.append([x, 6])
+            game_state.attempt_spawn(SUPPORT, support_locations)
+            upgrade_locations = [[20, 11], [19, 8], [18, 7], [19, 5], [23, 12], [23, 10], [21, 7]]
+            for x in range(9, 16, 1):
+                upgrade_locations.append([x, 6])
+            game_state.attempt_upgrade(upgrade_locations)
+
 
 
 
