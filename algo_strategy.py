@@ -205,7 +205,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         # if game_state.turn_number >=6:
         #     game_state.attempt_spawn(WALL, [[0,13]])
         #     game_state.attempt_upgrade([[0, 13]])
-        for location in list(set(self.scored_on_locations)):
+        unique_scored_on_locations = [list(x) for x in set(tuple(x) for x in self.scored_on_locations)]
+        for location in unique_scored_on_locations:
             # Build turret one space above so that it doesn't block our own edge spawn locations
             build_location = [location[0], location[1]]
             game_state.attempt_spawn(INTERCEPTOR, build_location,1)
