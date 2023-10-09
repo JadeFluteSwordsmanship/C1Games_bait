@@ -97,6 +97,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         best_location = self.least_damage_spawn_location(game_state, scout_spawn_location_options)
         if best_location[0] < 5:
             game_state.attempt_spawn(SCOUT, best_location[1], 1000)
+        elif (self.detect_enemy_unit(game_state, unit_type=[TURRET,WALL,SUPPORT], valid_x=[21,22,23,24,25,26,27], valid_y=[14]) == 7):
+            if game_state.get_resource(MP) >= 16 * game_state.type_cost(SCOUT)[MP]:
+                game_state.attempt_spawn(SCOUT, [4, 9], 1000)
         else:
             if best_location[0] <= 10:
                 game_state.attempt_spawn(DEMOLISHER, [4,9], 1)
@@ -345,7 +348,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         for location in game_state.game_map:
             if game_state.contains_stationary_unit(location):
                 for unit in game_state.game_map[location]:
-                    if unit.player_index == 1 and (unit_type is None or unit.unit_type == unit_type) and (valid_x is None or location[0] in valid_x) and (valid_y is None or location[1] in valid_y):
+                    if unit.player_index == 1 and (unit_type is None or unit.unit_type in unit_type) and (valid_x is None or location[0] in valid_x) and (valid_y is None or location[1] in valid_y):
                         total_units += 1
         return total_units
         
