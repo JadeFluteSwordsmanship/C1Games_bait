@@ -25,10 +25,11 @@ class AlgoStrategy(gamelib.AlgoCore):
         seed = random.randrange(maxsize)
         random.seed(seed)
         gamelib.debug_write('Random seed: {}'.format(seed))
-        global enemy_health, my_health, enemy_max_MP
+        global enemy_health, my_health, enemy_max_MP,flag
         enemy_health = []
         my_health = []
         enemy_max_MP = 0
+        flag = False
 
     def on_game_start(self, config):
         """ 
@@ -81,7 +82,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         If there are no stationary units to attack in the front, we will send Scouts to try and score quickly.
         """
         # First, place basic defenses
-        global enemy_health, my_health, enemy_max_MP
+        global enemy_health, my_health, enemy_max_MP,flag
+        flag = self.move_to_another_path(game_state,flag)
         self.build_reactive_defense(game_state)
         self.build_defences(game_state)
         # Now build reactive defenses based on where the enemy scored
@@ -97,6 +99,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         best_location = self.least_damage_spawn_location(game_state, scout_spawn_location_options)
         if best_location[0] < 5:
             game_state.attempt_spawn(SCOUT, best_location[1], 1000)
+        elif flag:
+            if game_state.get_resource(MP) >= 11 * game_state.type_cost(SCOUT)[MP]:
+                game_state.attempt_spawn(SCOUT, [4, 9], 1000)
         elif (self.detect_enemy_unit(game_state, unit_type=[TURRET,WALL,SUPPORT], valid_x=[21,22,23,24,25,26,27], valid_y=[14]) == 7):
             if game_state.get_resource(MP) >= 16 * game_state.type_cost(SCOUT)[MP]:
                 game_state.attempt_spawn(SCOUT, [4, 9], 1000)
@@ -167,6 +172,32 @@ class AlgoStrategy(gamelib.AlgoCore):
                 # game_state.attempt_spawn(SUPPORT, support_locations)
                 # game_state.attempt_upgrade(support_locations)
 
+
+    def move_to_another_path(self, game_state,flag):
+        if flag == True:
+            turret_list = [[22,13],[24,13],[25,13],[21,12],[22,12],[23,12],[24,12],[21,11],[22,11],[21,10],[22,10]]
+            game_state.attempt_spawn(TURRET, turret_list)
+            return True
+        if game_state.turn_number > 24 and len(set(enemy_health[len(enemy_health) - 13:])) <= 1:
+            if game_state.get_resource(SP,player_index=0) <= 16:
+                return False
+            else:
+                remove_list = []
+                for x in range(22,28,1):
+                    for y in [11,12,13]:
+                        remove_list.append([x,y])
+                remove_list.append([22,10])
+                remove_list.append([23,10])
+                remove_list.append([22,9])
+                remove_list.append([23,9])
+                game_state.attempt_remove(remove_list)
+                return True
+        else:
+            return False
+
+
+
+
     def build_defences(self, game_state):
         """
         Build basic defenses using hardcoded locations.
@@ -178,7 +209,6 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         # Place turrets that attack enemy units
         wall_locations = [[0,13],[1,12],[27,13]]
-
         for x in range(2,5,1):
             wall_locations.append([x, 11])
         for x in range(26,22, -1):
@@ -219,9 +249,11 @@ class AlgoStrategy(gamelib.AlgoCore):
 
 
         turret_locations = []
-        for x in range(19,15,-1):
+        for x in range(19,17,-1):
             turret_locations.append([x, x-11])
             turret_locations.append([x, x-14])
+        turret_locations.append([19,10])
+        turret_locations.append([19,11])
         turret_locations.append([7,8])
         turret_locations.append([17, 8])
         game_state.attempt_spawn(TURRET, turret_locations)
@@ -230,7 +262,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(SUPPORT, support_locations)
 
         if len(enemy_health) >= 10:
-            if len(set(enemy_health[len(enemy_health)-7:])) <= 1:
+            if len(set(enemy_health[len(enemy_health)-10:])) <= 1:
                 game_state.attempt_spawn(WALL, [[20, 12], [20, 11], [21, 13]])
                 game_state.attempt_upgrade([[20, 12], [20, 11], [21, 13]])
         if game_state.get_resource(SP) >= 16:
