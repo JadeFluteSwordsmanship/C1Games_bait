@@ -25,6 +25,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         seed = random.randrange(maxsize)
         random.seed(seed)
         gamelib.debug_write('Random seed: {}'.format(seed))
+        global enemy_health
+        enemy_health = []
 
     def on_game_start(self, config):
         """ 
@@ -52,10 +54,11 @@ class AlgoStrategy(gamelib.AlgoCore):
         unit deployments, and transmitting your intended deployments to the
         game engine.
         """
+        global enemy_health
         game_state = gamelib.GameState(self.config, turn_state)
         gamelib.debug_write('Performing turn {} of your custom algo strategy'.format(game_state.turn_number))
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
-
+        enemy_health.append(game_state.enemy_health)
         self.starter_strategy(game_state)
 
         game_state.submit_turn()
@@ -74,7 +77,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         If there are no stationary units to attack in the front, we will send Scouts to try and score quickly.
         """
         # First, place basic defenses
-
+        global enemy_health
         self.build_defences(game_state)
         self.build_reactive_defense(game_state)
         # Now build reactive defenses based on where the enemy scored
@@ -93,15 +96,22 @@ class AlgoStrategy(gamelib.AlgoCore):
                 game_state.attempt_spawn(DEMOLISHER, [4,9], 1)
                 game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
             else:
-                if game_state.get_resource(MP) >= 13 * game_state.type_cost(SCOUT)[MP]:
+                if len(enemy_health) >= 10:
+                    if len(set(enemy_health[len(enemy_health) - 7:])) <= 1:
+                        if game_state.get_resource(MP) >= 3 * game_state.type_cost(DEMOLISHER)[MP]+1:
+                            game_state.attempt_spawn(DEMOLISHER, [4, 9], 3)
+                            game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
+                            return
+                if game_state.get_resource(MP) >= 20 * game_state.type_cost(SCOUT)[MP]:
                     # game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
                     game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
-                    game_state.attempt_spawn(SCOUT, [4,9], 1000)
+                    game_state.attempt_spawn(SCOUT, [4, 9], 1000)
                 else:
-                    if game_state.turn_number % 3 == 1:
-                        game_state.attempt_spawn(DEMOLISHER, [4,9] , 1)
-                    if game_state.turn_number % 2 == 1:
-                        game_state.attempt_spawn(INTERCEPTOR, [23, 9] , 1)
+                    if game_state.turn_number % 4 == 3:
+                        game_state.attempt_spawn(DEMOLISHER, [4, 9], 1)
+                    game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
+
+
 
 
 
@@ -145,6 +155,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         Build basic defenses using hardcoded locations.
         Remember to defend corners and avoid placing units in the front where enemy demolishers can attack them.
         """
+        global enemy_health
         # Useful tool for setting up your base locations: https://www.kevinbai.design/terminal-map-maker
         # More community tools available at: https://terminal.c1games.com/rules#Download
 
@@ -198,6 +209,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(WALL, [20, 11])
         game_state.attempt_spawn(SUPPORT, support_locations)
 
+        if len(enemy_health) >= 10:
+            if len(set(enemy_health[len(enemy_health)-7:])) <= 1:
+                game_state.attempt_spawn(WALL, [[21,12],[20,11],[22,13]])
+                game_state.attempt_upgrade([[21, 12], [20, 11], [22, 13]])
         if game_state.get_resource(SP) >= 30:
             for x in range(9, 16, 1):
                 support_locations.append([x, 6])
@@ -228,7 +243,8 @@ class AlgoStrategy(gamelib.AlgoCore):
         for location in unique_scored_on_locations:
             # Build turret one space above so that it doesn't block our own edge spawn locations
             build_location = [location[0], location[1]]
-            game_state.attempt_spawn(INTERCEPTOR, build_location,1)
+            if build_location not in [[24,10],[25,11],[23,9]]:
+                game_state.attempt_spawn(INTERCEPTOR, build_location,1)
 
     def stall_defensive_interceptors(self, game_state):
         for i in range(len(self.scored_on_locations)):
