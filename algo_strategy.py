@@ -78,9 +78,19 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.build_defences(game_state)
         # Now build reactive defenses based on where the enemy scored
 
-        if game_state.turn_number <= 2:
+        if game_state.turn_number <= 0:
             game_state.attempt_spawn(INTERCEPTOR, [[25,11]],1)
             game_state.attempt_spawn(INTERCEPTOR, [[4,9]],1)
+            return
+        if game_state.turn_number <=2:
+            game_state.attempt_spawn(DEMOLISHER, [[25,11]],1)
+            game_state.attempt_spawn(DEMOLISHER, [4, 9], 1)
+            return
+        if game_state.turn_number % 2 == 1:
+            game_state.attempt_spawn(DEMOLISHER, [4, 9], 1000)
+            # game_state.attempt_spawn(SCOUT, [4, 9], 1000)
+            return
+        else:
             return
 
         # If the turn is less than 5, stall with interceptors and wait to see enemy's base
@@ -144,7 +154,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         for x in range(9, 4, -2):
             turret_locations.append([x, 12])
         game_state.attempt_spawn(TURRET, turret_locations)
-        wall_locations = [[4, 10], [6, 12], [4, 12],[1,12],[2,12]]
+        wall_locations = [[4, 10], [6, 12],[1,12],[2,12]]
         for x in range(13, 21, 1):
             wall_locations.append([x, 10])
         game_state.attempt_spawn(WALL, wall_locations)
