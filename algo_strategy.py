@@ -25,8 +25,10 @@ class AlgoStrategy(gamelib.AlgoCore):
         seed = random.randrange(maxsize)
         random.seed(seed)
         gamelib.debug_write('Random seed: {}'.format(seed))
-        global enemy_health
+        global enemy_health, my_health, enemy_max_MP
         enemy_health = []
+        my_health = []
+        enemy_max_MP = 0
 
     def on_game_start(self, config):
         """ 
@@ -54,12 +56,13 @@ class AlgoStrategy(gamelib.AlgoCore):
         unit deployments, and transmitting your intended deployments to the
         game engine.
         """
-        global enemy_health, my_health
+        global enemy_health, my_health, enemy_max_MP
         game_state = gamelib.GameState(self.config, turn_state)
         gamelib.debug_write('Performing turn {} of your custom algo strategy'.format(game_state.turn_number))
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
         enemy_health.append(game_state.enemy_health)
         my_health.append(game_state.my_health)
+        enemy_max_MP = max(game_state.get_resource(MP,1) ,enemy_max_MP)
         self.starter_strategy(game_state)
 
         game_state.submit_turn()
@@ -78,11 +81,13 @@ class AlgoStrategy(gamelib.AlgoCore):
         If there are no stationary units to attack in the front, we will send Scouts to try and score quickly.
         """
         # First, place basic defenses
-        global enemy_health, my_health
-        self.build_defences(game_state)
+        global enemy_health, my_health, enemy_max_MP
         self.build_reactive_defense(game_state)
+        self.build_defences(game_state)
         # Now build reactive defenses based on where the enemy scored
-
+        tol = 19
+        if [23, 9] in self.scored_on_locations:
+            tol = min(19,enemy_max_MP-0.99)
         if game_state.turn_number <= 1:
             # game_state.attempt_spawn(DEMOLISHER, [[26,12]],1)
             game_state.attempt_spawn(SCOUT, [4,9], 1000)
@@ -99,18 +104,23 @@ class AlgoStrategy(gamelib.AlgoCore):
             else:
                 if len(enemy_health) >= 10:
                     if len(set(enemy_health[len(enemy_health) - 7:])) <= 1:
-                        if game_state.get_resource(MP) >= 3 * game_state.type_cost(DEMOLISHER)[MP]+1:
-                            game_state.attempt_spawn(DEMOLISHER, [4, 9], 3)
-                            # game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
+                        if len(enemy_health) >= 20 and len(set(enemy_health[len(enemy_health) - 17:])) <= 1:
+                            if game_state.get_resource(MP) >= 7 * game_state.type_cost(DEMOLISHER)[MP] + 1:
+                                game_state.attempt_spawn(DEMOLISHER, [4, 9], 100)
+                            return
+                        else:
+                            if game_state.get_resource(MP) >= 3 * game_state.type_cost(DEMOLISHER)[MP]+1:
+                                game_state.attempt_spawn(DEMOLISHER, [4, 9], 3)
+                                # game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
 
                 if game_state.get_resource(MP) >= 20 * game_state.type_cost(SCOUT)[MP]:
                     # game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
                     game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
                     game_state.attempt_spawn(SCOUT, [4, 9], 1000)
                 else:
-                    if game_state.turn_number % 4 == 3:
-                        game_state.attempt_spawn(DEMOLISHER, [4, 9], 1)
-                    if game_state.get_resource(MP,player_index=1) >= 19:
+                    # if game_state.turn_number % 4 == 3:
+                    #     game_state.attempt_spawn(DEMOLISHER, [4, 9], 1)
+                    if game_state.get_resource(MP,player_index=1) >= tol:
                         game_state.attempt_spawn(INTERCEPTOR, [13,0], 1)
                         game_state.attempt_spawn(INTERCEPTOR, [23,9], 1)
 
