@@ -54,11 +54,12 @@ class AlgoStrategy(gamelib.AlgoCore):
         unit deployments, and transmitting your intended deployments to the
         game engine.
         """
-        global enemy_health
+        global enemy_health, my_health
         game_state = gamelib.GameState(self.config, turn_state)
         gamelib.debug_write('Performing turn {} of your custom algo strategy'.format(game_state.turn_number))
         game_state.suppress_warnings(True)  #Comment or remove this line to enable warnings.
         enemy_health.append(game_state.enemy_health)
+        my_health.append(game_state.my_health)
         self.starter_strategy(game_state)
 
         game_state.submit_turn()
@@ -77,7 +78,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         If there are no stationary units to attack in the front, we will send Scouts to try and score quickly.
         """
         # First, place basic defenses
-        global enemy_health
+        global enemy_health, my_health
         self.build_defences(game_state)
         self.build_reactive_defense(game_state)
         # Now build reactive defenses based on where the enemy scored
@@ -92,7 +93,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         if best_location[0] < 5:
             game_state.attempt_spawn(SCOUT, best_location[1], 1000)
         else:
-            if best_location[0] <= 15:
+            if best_location[0] <= 10:
                 game_state.attempt_spawn(DEMOLISHER, [4,9], 1)
                 game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
             else:
@@ -100,8 +101,8 @@ class AlgoStrategy(gamelib.AlgoCore):
                     if len(set(enemy_health[len(enemy_health) - 7:])) <= 1:
                         if game_state.get_resource(MP) >= 3 * game_state.type_cost(DEMOLISHER)[MP]+1:
                             game_state.attempt_spawn(DEMOLISHER, [4, 9], 3)
-                            game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
-                            return
+                            # game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
+
                 if game_state.get_resource(MP) >= 20 * game_state.type_cost(SCOUT)[MP]:
                     # game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
                     game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
@@ -109,7 +110,10 @@ class AlgoStrategy(gamelib.AlgoCore):
                 else:
                     if game_state.turn_number % 4 == 3:
                         game_state.attempt_spawn(DEMOLISHER, [4, 9], 1)
-                    game_state.attempt_spawn(INTERCEPTOR, [23, 9], 1)
+                    if game_state.get_resource(MP,player_index=1) >= 19:
+                        game_state.attempt_spawn(INTERCEPTOR, [13,0], 1)
+                        game_state.attempt_spawn(INTERCEPTOR, [23,9], 1)
+
 
 
 
@@ -155,7 +159,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         Build basic defenses using hardcoded locations.
         Remember to defend corners and avoid placing units in the front where enemy demolishers can attack them.
         """
-        global enemy_health
+        global enemy_health, my_health
         # Useful tool for setting up your base locations: https://www.kevinbai.design/terminal-map-maker
         # More community tools available at: https://terminal.c1games.com/rules#Download
 
@@ -183,6 +187,9 @@ class AlgoStrategy(gamelib.AlgoCore):
         turret_locations = [[5, 10], [23, 11], [23, 10], [20, 9], [5, 11], [22, 8], [21, 7], [19, 8], [18, 7], [20, 6],
                             [19, 5]]
         game_state.attempt_spawn(TURRET, turret_locations)
+        if game_state.get_resource(MP, player_index=1) >= 19:
+            game_state.attempt_spawn(TURRET, [19,10])
+            game_state.attempt_upgrade([19,10])
 
         upgrade_locations = [[23, 11], [20, 9], [5, 10], [3, 10], [0, 13], [1, 12], [27, 13]]
         game_state.attempt_upgrade(upgrade_locations)
@@ -231,6 +238,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         We can track where the opponent scored by looking at events in action frames 
         as shown in the on_action_frame function
         """
+        global enemy_health, my_health
         # upgrade_locations = [[11, 12], [17, 12], [22, 12],[14, 12], [18, 12]]
         # for location in upgrade_locations:
         #     for unit in game_state.game_map[location[0],location[1]]:
@@ -245,7 +253,10 @@ class AlgoStrategy(gamelib.AlgoCore):
             build_location = [location[0], location[1]]
             if build_location in [[0,13], [1,12], [2,11]]:
                 game_state.attempt_spawn(TURRET, [[2, 12], [3, 12], [1, 13], [2, 13]])
-                game_state.attempt_upgrade(TURRET, [[2, 12], [1, 13]])
+                game_state.attempt_upgrade([[2, 12], [1, 13]])
+            if build_location in [[27,13], [26,12], [25,11]]:
+                game_state.attempt_spawn(TURRET, [[24,11], [25,11], [26,13], [25, 13]])
+                game_state.attempt_upgrade([[24,11], [25, 13]])
             if build_location not in [[24,10],[25,11],[23,9]]:
                 game_state.attempt_spawn(INTERCEPTOR, build_location,1)
 
