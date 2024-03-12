@@ -72,6 +72,29 @@ class AlgoStrategy(gamelib.AlgoCore):
     strategy and can safely be replaced for your custom algo.
     """
 
+    def has_path_to_edge(self, game_state, start_loc):
+        edges = set([*[tuple(i) for i in game_state.game_map.get_edges()[0]],
+                     *[tuple(i) for i in game_state.game_map.get_edges()[1]]])
+        avail_locs = [start_loc]
+        seen_locs = set([tuple(start_loc)])
+        while avail_locs:
+            old_loc = avail_locs.pop(0)
+            x, y = old_loc
+            new_locs = [(x, y + 1), (x, y - 1), (x + 1, y), (x - 1, y)]
+            for loc in new_locs:
+                if not game_state.game_map.in_arena_bounds(loc):
+                    continue
+                if len(game_state.game_map[loc]) > 0:
+                    continue
+                if loc in edges:
+                    return True
+                if loc in seen_locs:
+                    continue
+                avail_locs.append(loc)
+                seen_locs.add(loc)
+
+        return False
+
     def starter_strategy(self, game_state):
         """
         For defense we will use a spread out layout and some interceptors early on.
@@ -81,41 +104,59 @@ class AlgoStrategy(gamelib.AlgoCore):
         """
         # First, place basic defenses
         global enemy_health, my_health, enemy_max_MP, flag
+
+        # debug
+        gamelib.debug_write(len(game_state.game_map[0, 14]))
+
+        if game_state.turn_number > 1 and self.detect_enemy_unit(game_state, unit_type=[TURRET, WALL, SUPPORT],
+                                                                 valid_y=[14, 15, 16, 17]) <= 3:
+            game_state.attempt_spawn(SUPPORT, [[15, 4]])
+            game_state.attempt_spawn(INTERCEPTOR, [16, 2], 1)
+            game_state.attempt_spawn(SCOUT, [4, 9], 1000)
+            return
+
+        if game_state.turn_number >= 3:
+            self.generate_bait(game_state)
+
         # flag = self.move_to_another_path(game_state, flag)
         self.build_reactive_defense(game_state)
         self.build_defences(game_state)
         # Now build reactive defenses based on where the enemy scored
-        tol = 18
+
+        has_path = self.has_path_to_edge(game_state, [14, 13])
+
+        tol = 16
         if game_state.my_health < my_health:
-            tol = min(19, enemy_max_MP - 0.99)
-        if game_state.turn_number <= 2:
-            if (game_state.find_path_to_edge([5, 8])[-1] not in game_state.game_map.get_edges()[0]) and (
-                    game_state.find_path_to_edge([5, 8])[-1] not in game_state.game_map.get_edges()[1]):
-                return
-            else:
-                game_state.attempt_spawn(SCOUT, [5, 8], 5)
+            tol = min(tol, enemy_max_MP - 0.99)
+        if game_state.get_resource(MP, player_index=1) >= tol:
+            if has_path:
+                game_state.attempt_spawn(INTERCEPTOR, [17, 3], 1)
+        if game_state.turn_number <= 1:
+            if has_path:
+                game_state.attempt_spawn(SCOUT, [5, 8], 4)
                 game_state.attempt_spawn(SCOUT, [4, 9], 1000)
             return
 
-        scout_spawn_location_options = [[4, 9], [14, 0]]
+        scout_spawn_location_options = [[5, 8], [4, 9], [14, 0]]
         best_location = self.least_damage_spawn_location(game_state, scout_spawn_location_options)
         if best_location[0] < 25:
-            if (game_state.find_path_to_edge([5, 8])[-1] not in game_state.game_map.get_edges()[0]) and (
-                    game_state.find_path_to_edge([5, 8])[-1] not in game_state.game_map.get_edges()[1]):
-                if game_state.get_resource(MP) >= 18 * game_state.type_cost(SCOUT)[MP]:
-                    game_state.attempt_spawn(SCOUT, [5, 8], 5)
-                    game_state.attempt_spawn(SCOUT, best_location[1], 1000)
-            else:
-                game_state.attempt_spawn(SCOUT, [5, 8], 5)
-                game_state.attempt_spawn(SCOUT, best_location[1], 1000)
+            if has_path:
+                if game_state.get_resource(MP) >= 16 * game_state.type_cost(SCOUT)[MP]:
+                    game_state.attempt_spawn(SCOUT, best_location[1], 5)
+                    game_state.attempt_spawn(SCOUT, [4, 9], 1000)
+
         # elif flag:
         #     if game_state.get_resource(MP) >= 11 * game_state.type_cost(SCOUT)[MP]:
         #         game_state.attempt_spawn(SCOUT, [4, 9], 1000)
         elif (self.detect_enemy_unit(game_state, unit_type=[TURRET, WALL, SUPPORT],
                                      valid_x=[20, 21, 22, 23, 24, 25, 26, 27], valid_y=[14]) >= 7):
             if game_state.get_resource(MP) >= 7 * game_state.type_cost(DEMOLISHER)[MP] + 1:
-                game_state.attempt_spawn(DEMOLISHER, [4, 9], 7)
-                game_state.attempt_spawn(INTERCEPTOR, [16, 2], 1)
+                if has_path:
+                    game_state.attempt_spawn(INTERCEPTOR, [16, 2], 1)
+                else:
+                    game_state.attempt_spawn(DEMOLISHER, [4, 9], 7)
+                    game_state.attempt_spawn(SCOUT, [4, 9], 1000)
+
             else:
                 return
         else:
@@ -123,25 +164,18 @@ class AlgoStrategy(gamelib.AlgoCore):
                 if len(set(enemy_health[len(enemy_health) - 7:])) <= 1:
                     if len(enemy_health) >= 20 and len(set(enemy_health[len(enemy_health) - 17:])) <= 1:
                         if game_state.get_resource(MP) >= 7 * game_state.type_cost(DEMOLISHER)[MP] + 1:
-                            game_state.attempt_spawn(INTERCEPTOR, [16, 2], 1)
+                            if has_path:
+                                game_state.attempt_spawn(INTERCEPTOR, [16, 2], 1)
                             game_state.attempt_spawn(DEMOLISHER, [4, 9], 100)
                         if game_state.get_resource(MP, player_index=1) >= tol:
-                            game_state.attempt_spawn(INTERCEPTOR, [17, 3], 1)
+                            if has_path:
+                                game_state.attempt_spawn(INTERCEPTOR, [17, 3], 1)
                         return
-            if (game_state.find_path_to_edge([5, 8])[-1] not in game_state.game_map.get_edges()[0]) and (
-                    game_state.find_path_to_edge([5, 8])[-1] not in game_state.game_map.get_edges()[1]):
-                if game_state.get_resource(MP) >= 20 * game_state.type_cost(SCOUT)[MP]:
-                    # game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
-                    game_state.attempt_spawn(SCOUT, [5, 8], 10)
-                    game_state.attempt_spawn(SCOUT, [4, 9], 1000)
-            else:
-                if game_state.get_resource(MP) >= 20 * game_state.type_cost(SCOUT)[MP]:
-                    # game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
-                    game_state.attempt_spawn(SCOUT, [5, 8], 5)
-                    game_state.attempt_spawn(SCOUT, [4, 9], 1000)
 
-        if game_state.get_resource(MP, player_index=1) >= tol:
-            game_state.attempt_spawn(INTERCEPTOR, [17, 3], 1)
+        if game_state.get_resource(MP) >= 16 * game_state.type_cost(SCOUT)[MP]:
+            # game_state.attempt_spawn(DEMOLISHER, best_location[1], 2)
+            game_state.attempt_spawn(SCOUT, [5, 8], 10)
+            game_state.attempt_spawn(SCOUT, [4, 9], 1000)
 
         # # If the turn is less than 5, stall with interceptors and wait to see enemy's base
         # if game_state.turn_number < 26:
@@ -209,24 +243,26 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(WALL, wall_locations)
         for x in range(2, 6, 1):
             game_state.attempt_spawn(WALL, [x, 11])
-        for x in range(26, 22, -1):
+        for x in [26, 23]:
             game_state.attempt_spawn(WALL, [x, 12])
         for x in range(6, 9):
             game_state.attempt_spawn(WALL, [x, 16 - x])
         for x in range(9, 18):
             game_state.attempt_spawn(WALL, [x, 8])
-        for x in range(18, 21):
+        for x in [18, 20]:
             game_state.attempt_spawn(WALL, [x, x - 10])
         wall_locations.append([22, 11])
         wall_locations.append([22, 10])
         game_state.attempt_spawn(WALL, wall_locations)
 
+        turret_locations = [[23, 11], [23, 10], [23, 9], [20, 9], [19, 8], [22, 8], [21, 7], [19, 9], [18, 7]]
+        game_state.attempt_spawn(TURRET, turret_locations)
+
         support_locations = [[4, 10]]
         game_state.attempt_spawn(SUPPORT, support_locations)
 
-        turret_locations = [[5, 10], [23, 11], [23, 10], [20, 9], [22, 8], [21, 7], [19, 8], [18, 7]]
-        game_state.attempt_spawn(TURRET, turret_locations)
-        game_state.attempt_spawn(SUPPORT, [23, 9])
+        game_state.attempt_spawn(SUPPORT, [5, 10])
+        # game_state.attempt_spawn(SUPPORT, [23, 9])
         game_state.attempt_spawn(TURRET, [[20, 6], [19, 5]])
 
         if game_state.turn_number > 6:
@@ -238,6 +274,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.attempt_spawn(SUPPORT, [6, 9])
         upgrade_locations = [[5, 10], [5, 11], [23, 12], [6, 10]]
         game_state.attempt_upgrade(upgrade_locations)
+        game_state.attempt_upgrade(turret_locations)
         for x in range(2, 6, 1):
             upgrade_locations.append([x, 11])
         game_state.attempt_upgrade(upgrade_locations)
@@ -292,6 +329,37 @@ class AlgoStrategy(gamelib.AlgoCore):
             game_state.attempt_upgrade([x, 4])
             x = x + 1
 
+    def generate_bait(self, game_state):
+        if len(game_state.game_map[1, 15]) == 0:
+            # enemy removed left wall
+            if len(game_state.game_map[1, 14]) == 0 and len(game_state.game_map[2, 15]) == 0 and len(
+                    game_state.game_map[2, 16]) == 0 \
+                    and len(game_state.game_map[3, 16]) == 0 and len(game_state.game_map[3, 17]) == 0:
+                # enemy may want to attack 
+                game_state.attempt_spawn(WALL, [[2, 12], [3, 12]])
+        else:
+            game_state.attempt_remove([[2, 12], [3, 12]])
+
+        if len(game_state.game_map[26, 15]) == 0:
+            # enemy removed right wall
+            if len(game_state.game_map[26, 14]) == 0 and len(game_state.game_map[25, 15]) == 0 and len(
+                    game_state.game_map[25, 16]) == 0 \
+                    and len(game_state.game_map[24, 16]) == 0 and len(game_state.game_map[24, 17]) == 0:
+                # enemy may want to attack 
+                game_state.attempt_spawn(WALL, [[24, 12], [25, 12]])
+        else:
+            game_state.attempt_remove([[24, 12], [25, 12]])
+
+        # if len(game_state.game_map[1,15]) > 0: 
+        #     self.enemy_left_wall = True
+        # else: 
+        #     self.enemy_left_wall = False
+
+        # if len(game_state.game_map[27,14]) > 0: 
+        #     self.enemy_right_wall = True
+        # else: 
+        #     self.enemy_right_wall = False
+
     def build_reactive_defense(self, game_state):
         """
         This function builds reactive defenses based on where the enemy scored on us from.
@@ -299,13 +367,15 @@ class AlgoStrategy(gamelib.AlgoCore):
         as shown in the on_action_frame function
         """
         global enemy_health, my_health, flag_remove
-        upgrade_locations = [[27, 13], [0, 13]]
+        # upgrade_locations = [[27, 13], [0, 13]]
+        upgrade_locations = [[27, 13], [0, 13], [1, 12], [2, 11], [3, 11], [4, 11], [26, 12], [25, 11], [24, 11],
+                             [23, 12]]
         game_state.attempt_spawn(WALL, upgrade_locations)
         if game_state.turn_number > 5:
             game_state.attempt_upgrade(upgrade_locations)
         for location in upgrade_locations:
-            for unit in game_state.game_map[location[0], location[1]]:
-                if unit.health <= 25 and unit.unit_type == WALL:
+            for unit in game_state.game_map[location]:
+                if unit.health <= 0.6 * unit.max_health:
                     game_state.attempt_remove(location)
 
         # unique_scored_on_locations = [list(x) for x in set(tuple(x) for x in self.scored_on_locations)]
